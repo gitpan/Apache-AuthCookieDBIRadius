@@ -1,0 +1,26 @@
+$Id$
+
+Apache::AuthCookieDBIRadius is a module that subclasses Apache::AuthCookie 
+and is designed to be directly used for authentication in a mod_perl 
+server.
+
+It is a ticket-issuing system that looks up username/passwords in a DBI
+database using generic SQL and issues MD5-checksummed tickets valid for
+a configurable time period.  Incoming requests with tickets are
+checksummed and expire-time checked.
+
+Upon failure, it then checks a Radius server for authentication.
+You do not need to run a Radius server to use this.  Actually, 
+Radius authentication is commented out by default.  Uncomment the
+Radius lines in AuthCookieDBIRadius.pm if you intend to use this method
+along with a DBI database.  Most won't be using this method.  You'll need to 
+get Radius authentication working first before using AuthCookieDBIRadius.
+See Apache-AuthenRadius and Authen::Radius and http://www.funk.com/radius/.
+
+Included is a sample httpd.conf and login.pl for your review. 
+
+Also included is a customized AuthCookie.pm.  Replace with your existing 
+AuthCookie.pm for added customized error messages and the added $TICKET 
+environmental variable.    
+
+It is currently in production at http://www.s1te.com/secure/. 
