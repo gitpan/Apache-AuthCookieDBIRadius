@@ -23,7 +23,7 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
-# $Id: AuthCookieDBIRadius.pm,v 2.18 2001/11/12 11:50:01 barracode Exp $
+# $Id: AuthCookieDBIRadius.pm,v 1.19 2001/11/14 12:07:01 barracode Exp $
 #
 #===============================================================================
 
@@ -33,8 +33,8 @@ use strict;
 use 5.004;
 use vars qw( $VERSION );
 
-# $Id: AuthCookieDBIRadius.pm,v 2.18 2001/11/12 11:50:01 barracode Exp $
-$VERSION = '1.18';
+# $Id: AuthCookieDBIRadius.pm,v 1.19 2001/11/14 12:07:01 barracode Exp $
+$VERSION = '1.19';
 
 use Apache::AuthCookie;
 use vars qw( @ISA );
@@ -358,7 +358,7 @@ sub authen_cred($$\@)
       }
    }
    # Store new value.
-   my $result = $share->store("$ENV{REMOTE_ADDR}:$attempts");
+   $result = $share->store("$ENV{REMOTE_ADDR}:$attempts");
 
 	# Look up user in database.
 	my $dbh = DBI->connect( $c{ DBI_DSN },
@@ -371,7 +371,7 @@ sub authen_cred($$\@)
 	}
 	my $cmd = "SELECT $c{DBI_passwordfield},activeuser,a,b,c,d,e,f,g FROM $c{DBI_userstable} WHERE $c{DBI_userfield} = @{[ $dbh->quote($user) ]}";
 
-	my $result = $dbh->prepare($cmd);
+	$result = $dbh->prepare($cmd);
 	$result->execute;
 
 	my @row = $result->fetchrow_array;
@@ -669,10 +669,10 @@ sub authen_ses_key($$$)
 	# if ( lc $c{ DBI_AlwaysUseCurrentSessionLifetime } eq 'on' ) {
 
 	# check the directory to see if user has correct permissions here.
- 	my $auth_name = $r->auth_name;
+ 	$auth_name = $r->auth_name;
 
    # Get the configuration information.
-   my %c = _dbi_config_vars $r;
+   %c = _dbi_config_vars $r;
 
    # a
    if ($c{DBI_a} eq "on" && $a ne 'y')
@@ -773,55 +773,95 @@ __END__
 
 =head1 NAME
 
-   Apache::AuthCookieDBIRadius - An AuthCookie module backed by a DBI database.
+   Apache::AuthCookieDBIRadius - An AuthCookie module backed by a DBI database, and an optional Radius server.
 
 =head1 SYNOPSIS
 
    # In httpd.conf or .htaccess
-   PerlModule Apache::AuthCookieDBIRadius
-   PerlSetVar WhatEverPath /
-   PerlSetVar WhatEverLoginScript /login.pl
 
-   # Optional, to share tickets between servers.
-   PerlSetVar WhatEverDomain .domain.com
+	############################################
+	#     AuthCookie                           #
+	#                                          #
+	# PortalDBI_CryptType                      #
+	# PortalDBI_GroupsTable                    #
+	# PortalDBI_GroupField                     #
+	# PortalDBI_GroupUserField                 #
+	# PortalDBI_EncryptionType none|crypt|md5  #
+	# PortalDBI_a on|off                       #
+	# PortalDBI_b on|off                       #
+	# PortalDBI_c on|off                       #
+	# PortalDBI_d on|off                       #
+	# PortalDBI_e on|off                       #
+	# PortalDBI_f on|off                       #
+	# PortalDBI_g on|off                       #
+	# PortalDBI_useracct on|off                #
+	# PortalDBI_log_field last_access          #
+	# PortalDBI_Radius_host none               #
+	# PortalDBI_Radius_port 1645               #
+	# PortalDBI_Radius_secret none             #
+	# PortalDBI_Radius_timeout 45              #
+	# AuthCookieDebug 0,1,2,3                  #
+	# PortalDomain .yourdomain.com             #
+	#                                          #
+	############################################
 
-   # These must be set
-   PerlSetVar WhatEverDBI_DSN "DBI:mysql:database=test"
-   PerlSetVar WhatEverDBI_SecretKeyFile /etc/httpd/acme.com.key
+	# key line must come first
+	PerlSetVar PortalDBI_SecretKeyFile /usr/local/apache/conf/site.key
 
-	# These are optional, the module sets sensible defaults.
-	PerlSetVar WhatEverDBI_User "nobody"
-	PerlSetVar WhatEverDBI_Password "password"
-	PerlSetVar WhatEverDBI_UsersTable "users"
-	PerlSetVar WhatEverDBI_UserField "user"
-	PerlSetVar WhatEverDBI_PasswordField "password"
-	PerlSetVar WhatEverDBI_CryptType "none"
-	PerlSetVar WhatEverDBI_GroupsTable "groups"
-	PerlSetVar WhatEverDBI_GroupField "grp"
-	PerlSetVar WhatEverDBI_GroupUserField "user"
-	PerlSetVar WhatEverDBI_EncryptionType "none"
-	PerlSetVar WhatEverDBI_SessionLifetime 00-24-00-00
+	PerlModule Apache::AuthCookieDBIRadius
+	PerlSetVar PortalPath /
+	PerlSetVar PortalLoginScript /login.pl
+	PerlSetVar AuthCookieDebug 1
+	PerlSetVar PortalDBI_DSN 'dbi:Pg:host=localhost port=5432 dbname=mydatabase'
+	PerlSetVar PortalDBI_User "database_user"
+	PerlSetVar PortalDBI_Password "database_password"
+	PerlSetVar PortalDBI_UsersTable "users"
+	PerlSetVar PortalDBI_UserField "userid"
+	PerlSetVar PortalDBI_PasswordField "password"
+	PerlSetVar PortalDBI_SessionLifeTime 00-24-00-00
 
-	# Protected by AuthCookieDBIRadius.
-	<Directory /www/domain.com/authcookiedbi>
-		AuthType Apache::AuthCookieDBIRadius
-		AuthName WhatEver
-		PerlAuthenHandler Apache::AuthCookieDBIRadius->authenticate
-		PerlAuthzHandler Apache::AuthCookieDBIRadius->authorize
-		require valid-user
-		# or you can require users:
-		require user jacob
-		# You can optionally require groups.
-		require group system
+	<FilesMatch "\.pl">
+ 	 AuthType Apache::AuthCookieDBIRadius
+ 	 AuthName Portal
+ 	 SetHandler perl-script
+ 	 PerlHandler Apache::Registry
+ 	 Options +ExecCGI
+	</FilesMatch>
+
+	# login.pl
+	<Files LOGIN>
+ 	 AuthType Apache::AuthCookieDBIRadius
+ 	 AuthName Portal
+ 	 SetHandler perl-script
+ 	 PerlHandler Apache::AuthCookieDBIRadius->login
+	</Files>
+
+	#######################################
+	#                                     #
+	# Begin websites                      #
+	#                                     #
+	#######################################
+
+	# private
+	<Directory /home/httpd/html/private>
+ 	 AuthType Apache::AuthCookieDBIRadius
+ 	 AuthName Portal
+ 	 PerlSetVar PortalDBI_b on
+ 	 PerlAuthenHandler Apache::AuthCookieDBIRadius->authenticate
+ 	 PerlAuthzHandler Apache::AuthCookieDBIRadius->authorize
+ 	 require valid-user
 	</Directory>
 
-	# Login location.  *** DEBUG *** I still think this is screwy
-	<Files LOGIN>
-		AuthType Apache::AuthCookieDBIRadius
-		AuthName WhatEver
-		SetHandler perl-script
-		PerlHandler Apache::AuthCookieDBIRadius->login
-	</Files>
+	# calendar
+	<Directory /home/httpd/html/calendar>
+ 	 AuthType Apache::AuthCookieDBIRadius
+ 	 AuthName Portal
+  	 PerlSetVar PortalDBI_a on
+ 	 PerlAuthenHandler Apache::AuthCookieDBIRadius->authenticate
+ 	 PerlAuthzHandler Apache::AuthCookieDBIRadius->authorize
+ 	 require valid-user
+	</Directory>
+
 
 =head1 DESCRIPTION
 
@@ -1018,13 +1058,13 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 =head1 AUTHOR
 
-Jacob Davies
+Author: Charles Day <BarracodE@s1te.com>
+Original Author: Jacob Davies <jacob@sfinteractive.com> <jacob@well.com>
 
-        <jacob@sfinteractive.com>
-        <jacob@well.com>
 
 =head1 SEE ALSO
 
 Apache::AuthCookie(1)
+Apache::AuthCookieDBI(1)
 
 =cut
